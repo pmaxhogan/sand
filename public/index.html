@@ -1,0 +1,229 @@
+<html>
+<head>
+  <title>Sand - Tilt your phone & tap the screen</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html, body, canvas{
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+<canvas></canvas>
+<script>
+    const canvas = document.querySelector("canvas");
+    const ctx = canvas.getContext("2d");
+
+    let midX = Math.floor(window.innerWidth / 2);
+    let midY = Math.floor(window.innerHeight / 2);
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    addEventListener("resize", () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        midX = Math.floor(window.innerWidth / 2);
+        midY = Math.floor(window.innerHeight / 2);
+    });
+
+    const DEGREES_TO_RADIANS = Math.PI / 180;
+
+    // acceleration due to gravity
+    const g = 16;
+    // kinetic friction coefficent
+    const k = 0.1;
+    // a velocity small enough we can ignore it.
+    const stickyness = 0.1;
+
+    const noise = 0.05;
+
+    const minRotation = 2;
+
+    const drawScale = 1;
+
+    const hasSameSign = (num1, num2) => (Math.abs(num1) === num1 && Math.abs(num2) === num2) || (Math.abs(num1) !== num1 && Math.abs(num2) !== num2);
+
+    const trimFloatError = num => num > Number.MIN_SAFE_INTEGER ? num : 0;
+
+
+    let lowestV = 1;
+    class Obj{
+        constructor(x, y){
+            this.x = x;
+            this.y = y;
+            this.origX = x;
+            this.origY = y;
+            this.velocityX = 0;
+            this.accelerationX = 0;
+            this.velocityY = 0;
+            this.accelerationY = 0;
+
+            this.parallax = Math.random();
+
+            this.width = 7;
+            this.height = 7;
+        }
+
+        tick(time, minX, minY, maxX, maxY){
+            maxX -= this.width;
+            maxY -= this.height;
+            this.newX = this.x;
+            this.newY = this.y;
+
+
+            const timeInSeconds = time / 1000;
+            this.velocityX += this.accelerationX * timeInSeconds;
+            if(Math.abs(this.velocityX) <= stickyness){
+                this.velocityX = 0;
+            }else{
+                this.velocityX += Math.random() * noise * this.parallax;
+            }
+
+            this.newX += this.velocityX * timeInSeconds;
+
+
+            this.velocityY += this.accelerationY * timeInSeconds;
+            if(Math.abs(this.velocityY) <= stickyness){
+                this.velocityY = 0;
+            }else{
+                this.velocityY += Math.random() * noise * this.parallax;
+            }
+
+            this.newY += this.velocityY * timeInSeconds;
+
+            lowestV = Math.min(lowestV, Math.abs(this.velocityX));
+
+            // if(this.newX <= minX / drawScale){
+            // 	this.newX = minX / drawScale;
+            // 	this.velocityX = Math.max(0, this.velocityX);
+            // }
+            // if(this.newX >= maxX / drawScale){
+            // 	this.newX = maxX / drawScale;
+            // 	this.velocityX = Math.min(0, this.velocityX);
+            // }
+            // if(this.newY <= minY / drawScale){
+            // 	this.newY = minY / drawScale;
+            // 	this.velocityY = Math.max(0, this.velocityY);
+            // }
+            // if(this.newY >= maxY / drawScale){
+            // 	this.newY = maxY / drawScale;
+            // 	this.velocityY = Math.min(0, this.velocityY);
+            // }
+            if(this.newX < minX / drawScale){
+                this.newX = maxX / drawScale;
+            }
+            if(this.newX > maxX / drawScale){
+                this.newX = minX / drawScale;
+            }
+            if(this.newY < minY / drawScale){
+                this.newY = maxY / drawScale;
+            }
+            if(this.newY > maxY / drawScale){
+                this.newY = minY / drawScale;
+            }
+
+
+            if(true || objs.every((obj, idx) => {
+                if(idx === objs.indexOf(this))
+                    return true;
+                if(!(Math.round(this.x) < Math.round(obj.x) + obj.width &&
+                    Math.round(this.x) + this.width > Math.round(obj.x) &&
+                    Math.round(this.y) < Math.round(obj.y) + obj.height &&
+                    Math.round(this.y) + this.height > Math.round(obj.y))){
+                    return true;
+                }
+            })){
+                this.x = this.newX;
+                this.y = this.newY;
+            }
+        }
+
+        draw(midX, midY){
+            const drawX = (this.x * drawScale) + midX;
+            const drawY = (this.y * drawScale) + midY;
+            return {x: drawX, y: drawY};
+        }
+    }
+
+    const findAccelerationFromRotation = (rotation, frictionRelativeDirection) => Math.sin(rotation * DEGREES_TO_RADIANS) * g - frictionRelativeDirection * k * Math.cos(rotation * DEGREES_TO_RADIANS) * g;
+
+    const objs = [];
+    for(let i = 0; i < canvas.width / 10; i++){
+        for(let j = 0; j < canvas.height / 10; j++){
+            objs.push(new Obj(midX - i * 10 - 7, midY - j * 10 - 7));
+        }
+    }
+
+    let rotationX = 0;
+    let rotationY = 0;
+
+    addEventListener("deviceorientation", (event) => {
+        // alpha is not relevant for our math
+        if(Math.abs(event.gamma) > minRotation) rotationX = event.gamma;
+        else rotationX = 0;
+        if(Math.abs(event.beta) > minRotation) rotationY = event.beta;
+        else rotationY = 0;
+    }, true);
+
+    let t = Date.now();
+
+    let n = 0;
+    let t2 = Date.now();
+    const physics = () => {
+        n++;
+        objs.forEach(obj => {
+            obj.accelerationX = findAccelerationFromRotation(rotationX, Math.sign(obj.velocityX));
+            obj.accelerationY = findAccelerationFromRotation(rotationY, Math.sign(obj.velocityY));
+        });
+        setTimeout(physics, 0);
+    };
+    physics();
+
+    const draw = () => {
+
+        ctx.fillStyle = "#FFF";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        objs.forEach(obj => {
+            obj.tick(100, midX - canvas.width, midY - canvas.height, midX, midY);
+            const {x, y} = obj.draw(midX, midY);
+            ctx.fillStyle = `rgb(255, ${Math.abs(256 - Math.abs(obj.origX % 512))}, ${Math.abs(256 - Math.abs(obj.origY % 512))})`;
+            ctx.fillRect(x, y, obj.width, obj.height);
+        });
+        t = Date.now();
+        requestAnimationFrame(draw);
+    };
+    requestAnimationFrame(draw);
+
+    addEventListener("click", () => {
+        objs.forEach(obj => obj.x += Math.round(Math.random() * 5) - 2.5);
+        objs.forEach(obj => obj.y += Math.round(Math.random() * 5) - 2.5);
+    });
+
+    // const sensor = new AbsoluteOrientationSensor();
+    // Promise.all([navigator.permissions.query({ name: "accelerometer" }),
+    //              navigator.permissions.query({ name: "magnetometer" }),
+    //              navigator.permissions.query({ name: "gyroscope" })])
+    //        .then(results => {
+    //          if (results.every(result => result.state === "granted")) {
+    //            sensor.start();
+
+    //          } else {
+    //            console.log("No permissions to use AbsoluteOrientationSensor.");
+    //          }
+    //     });
+
+    // sensor.addEventListener('reading', () => {
+    //   console.log(sensor.quaternion);
+
+    // });
+    // sensor.addEventListener('error', error => {
+    //   if (event.error.name == 'NotReadableError') {
+    //     console.log("Sensor is not available.");
+    //   }
+    // });
+</script>
+</body>
+</html>
