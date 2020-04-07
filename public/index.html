@@ -203,7 +203,7 @@
                 document.querySelector("#device-modal").hidden = true;
                 document.querySelector("#move-modal").hidden = false;
                 if (prevBeta) {
-                    if (Math.abs(event.beta - prevBeta) > 1 || Math.abs(event.gamma - prevGamma) > 1) {
+                    if (Math.abs(event.beta - prevBeta) > 3 || Math.abs(event.gamma - prevGamma) > 3) {
                         document.querySelector("#move-modal").hidden = true;
                         hasMovedDevice = true;
                     }
