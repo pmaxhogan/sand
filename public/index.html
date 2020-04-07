@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 <head>
   <title>Sand - Tilt your phone & tap the screen</title>
@@ -8,9 +9,35 @@
       padding: 0;
       overflow: hidden;
     }
+    .modal{
+      width: 100%;
+      height: 100%;
+      background-color: #86868682;
+      position: absolute;
+      text-align: center;
+      font-size: 2em;
+      font-family: sans-serif;
+    }
+    .modal-inner{
+      display: flex;
+      justify-content:center;
+      align-items:center;
+      width:100%;
+      height:100%;
+    }
   </style>
 </head>
 <body>
+<div class="modal" id="device-modal">
+  <div class="modal-inner">
+  Use a device with an orientation sensor.
+  </div>
+</div>
+<div class="modal" id="move-modal" hidden>
+  <div class="modal-inner">
+    Move your device and tap the screen.
+  </div>
+</div>
 <canvas></canvas>
 <script>
     const canvas = document.querySelector("canvas");
@@ -159,12 +186,33 @@
     let rotationX = 0;
     let rotationY = 0;
 
+    let prevBeta;
+    let prevGamma;
+
+    let hasMovedDevice = false;
+
     addEventListener("deviceorientation", (event) => {
-        // alpha is not relevant for our math
-        if(Math.abs(event.gamma) > minRotation) rotationX = event.gamma;
-        else rotationX = 0;
-        if(Math.abs(event.beta) > minRotation) rotationY = event.beta;
-        else rotationY = 0;
+        if(event.gamma != null){
+            if (hasMovedDevice) {
+                // alpha is not relevant for our math
+                if (Math.abs(event.gamma) > minRotation) rotationX = event.gamma;
+                else rotationX = 0;
+                if (Math.abs(event.beta) > minRotation) rotationY = event.beta;
+                else rotationY = 0;
+            } else {
+                document.querySelector("#device-modal").hidden = true;
+                document.querySelector("#move-modal").hidden = false;
+                if (prevBeta) {
+                    if (Math.abs(event.beta - prevBeta) > 1 || Math.abs(event.gamma - prevGamma) > 1) {
+                        document.querySelector("#move-modal").hidden = true;
+                        hasMovedDevice = true;
+                    }
+                } else {
+                    prevBeta = event.beta;
+                    prevGamma = event.gamma;
+                }
+            }
+        }
     }, true);
 
     let t = Date.now();
